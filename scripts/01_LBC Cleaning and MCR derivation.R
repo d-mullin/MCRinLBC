@@ -4,9 +4,6 @@
 Sys.time()
 Sys.Date()
 
-# Set wd----
-setwd("/Users/dmullin/Dropbox/Academic/PhD/LBC/mcr_project")
-
 # Packages----
 # install.packages in separate script
 library(tidyverse) # formatting data for analysis (includes ggplot)
@@ -27,7 +24,8 @@ options(max.print=3000)
 
 
 # Load data----
-RawLBCdata <- read_csv("LBC1936_GaitSpeedAndCognitiveImpairmentDec2021_DM_16DEC2021.csv")
+
+RawLBCdata <- read_csv("data_raw/LBC1936_GaitSpeedAndCognitiveImpairmentDec2021_DM_16DEC2021.csv")
 
 # View column types
 spec(RawLBCdata)
@@ -94,10 +92,19 @@ MCRdata <- MCRdata %>%
                                  alcunitwk_w3 = c(-88, -89, -98, -99),
                                  alcunitwk_w4 = c(-88, -89, -98, -99),
                                  alcunitwk_w5 = c(-88, -89, -98, -99),
-                                 bld_crprot_w3 = c(-1, -3),
-                                 bld_crprot_w4 = c(-1, -3)
+                                 chairst_w2 = 99,
+                                 chairst_w3 = 99
                                  ))
 
+# convert crp values -3 (meaning <3 mg/l) and -1 (<1mg/l) to 1.5 for each 
+# affected wave (this weird system starts at w3)
+table(MCRdata$bld_crprot_w3) # first view number of odd measures
+table(MCRdata$bld_crprot_w4)
+table(MCRdata$bld_crprot_w5)
+MCRdata$bld_crprot_w3 <- replace(MCRdata$bld_crprot_w3, MCRdata$bld_crprot_w3<0, 1.5) # make changes
+MCRdata$bld_crprot_w4 <- replace(MCRdata$bld_crprot_w4, MCRdata$bld_crprot_w4<0, 1.5)
+MCRdata$bld_crprot_w5 <- replace(MCRdata$bld_crprot_w5, MCRdata$bld_crprot_w5<0, 1)
+table(MCRdata$bld_crprot_w5) # now view to ensure it worked
 
 # check to see if this has worked
 # initial na_values conversion check
@@ -2768,22 +2775,47 @@ dependent_w4 = "MCR.factor.w4"
 dependent_w5 = "MCR.factor.w5"
 
 # define explanatory variables for each wave
-explanatory_w1 = c("ageyears_w1", "Sex.factor", "yrsedu_w1", "Social.factor", "bmi_w1", "bld_choles_w1", "fev_w1", "Smoking.factor.w1", "ApoE.factor", "Alcohol.factor.w1", "CVD.factor.w1", "Stroke.factor.w1", "bld_crprot_w1", "bld_hba1c_w1", "vftot_w1", "age70IQ_w1", "hadsd_w1", "hadsa_w1", "Arthritis.factor.w1", "On.meds.factor.w1", "Legpain.factor.w1", "HiBP.factor.w1", "Marital.factor.w1", "alcunitwk_w1", "hadsd_w1", "hadsa_w1", "hadstot_w1", "age11IQ", "lm1_re_w1", "lm2_re_w1", "lmtotal_w1", "vpatotal_w1", "spantot_w1", "matreas_w1", "digback_w1", "nart_w1", "blkdes_w1", "ittotal_w1", "digsym_w1", "srtmean_w1", "griprh_w1", "griplh_w1") # "trailmakingtime_w3" and "Days_significant_exercise_w3" only start in w3; removed "PD.factor.w1" & "Diabetes.factor.w1" as there were no cases of MCR+ in either of these, thus giving a massively large CI and insightly table. 
+explanatory_w1 = c("ageyears_w1", "Sex.factor", "yrsedu_w1", "Social.factor", "Marital.factor.w1",  "Smoking.factor.w1",  "Alcohol.factor.w1", "alcunitwk_w1",  "CVD.factor.w1", "Stroke.factor.w1", "HiBP.factor.w1",  "On.meds.factor.w1", "Legpain.factor.w1",  "Arthritis.factor.w1", "ApoE.factor","bmi_w1",  "bld_choles_w1", "fev_w1", "bld_crprot_w1", "bld_hba1c_w1",  "hadsd_w1", "hadsa_w1", "hadstot_w1", "age11IQ", "vftot_w1",  "lm1_re_w1", "lm2_re_w1", "lmtotal_w1", "vpatotal_w1", "spantot_w1", "matreas_w1", "digback_w1", "nart_w1", "blkdes_w1", "ittotal_w1", "digsym_w1", "srtmean_w1", "griprh_w1", "griplh_w1") # "trailmakingtime_w3" and "Days_significant_exercise_w3" only start in w3; removed "PD.factor.w1" & "Diabetes.factor.w1" as there were no cases of MCR+ in either of these, thus giving a massively large CI and unsightly table. 
 # including "log_hadsd_w1", "log_hadsa_w1" here leads to an error as there is -Inf NaN -Inf scores here. 
+
+explanatory_w1_mostly_relevant <- c("ageyears_w1", "Sex.factor", "yrsedu_w1", "Social.factor", "Marital.factor.w1",  "Smoking.factor.w1", "alcunitwk_w1",  "CVD.factor.w1", "Stroke.factor.w1", "HiBP.factor.w1",  "Arthritis.factor.w1", "bmi_w1",  "bld_choles_w1", "fev_w1", "bld_hba1c_w1",   "hadstot_w1", "age11IQ", "vftot_w1",  "lm1_re_w1", "lm2_re_w1", "lmtotal_w1", "vpatotal_w1", "spantot_w1", "matreas_w1", "digback_w1", "nart_w1", "blkdes_w1", "ittotal_w1", "digsym_w1", "srtmean_w1", "griprh_w1", "griplh_w1")
+
+explanatory_w1_tidiest <- c("ageyears_w1", "Sex.factor", "yrsedu_w1", "Social.factor", "Marital.factor.w1",  "Smoking.factor.w1", "alcunitwk_w1",  "CVD.factor.w1", "Stroke.factor.w1", "HiBP.factor.w1",  "Arthritis.factor.w1", "bmi_w1",  "bld_choles_w1", "fev_w1", "bld_hba1c_w1",   "hadstot_w1", "age11IQ", "vftot_w1",  "lm1_re_w1", "lm2_re_w1", "lmtotal_w1", "vpatotal_w1", "spantot_w1", "matreas_w1", "digback_w1", "nart_w1", "blkdes_w1", "ittotal_w1", "digsym_w1", "srtmean_w1")
 
 # could use ff_glimpse function to see key info on each
 MCRcombinedRecoded %>% 
   ff_glimpse(explanatory_w1)
 
-explanatory_w3 = c("ageyears_w3", "Sex.factor", "yrsedu_w1", "Social.factor", "bmi_w3", "Smoking.factor.w3", "ApoE.factor", "Alcohol.factor.w3", "CVD.factor.w3", "Stroke.factor.w3", "PD.factor.w3", "Diabetes.factor.w3", "trailmakingtime_w3", "bld_crprot_w3", "Days_significant_exercise_w3", "vftot_w3", "age11IQ", "hadsd_w3", "hadsa_w3", "Arthritis.factor.w3", "On.meds.factor.w3", "Legpain.factor.w3", "HiBP.factor.w3", "Marital.factor.w3", "alcunitwk_w3", "hadsd_w3", "hadsa_w3", "hadstot_w3", "age11IQ", "lm1_re_w3", "lm2_re_w3", "lmtotal_w3", "vpatotal_w3", "spantot_w3", "matreas_w3", "digback_w3", "nart_w3", "blkdes_w3", "ittotal_w3", "digsym_w3", "srtmean_w3", "griprh_w3", "griplh_w3") 
+explanatory_w3 = c("ageyears_w3", "Sex.factor", "yrsedu_w1", "Social.factor", "bmi_w3", "bld_choles_w3", "fev_w3", "Smoking.factor.w3", "ApoE.factor", "Alcohol.factor.w3", "CVD.factor.w3", "Stroke.factor.w3", "PD.factor.w3", "Diabetes.factor.w3", "trailmakingtime_w3", "bld_crprot_w3", "Days_significant_exercise_w3", "vftot_w3", "age11IQ", "hadsd_w3", "hadsa_w3", "Arthritis.factor.w3", "On.meds.factor.w3", "Legpain.factor.w3", "HiBP.factor.w3", "Marital.factor.w3", "alcunitwk_w3", "hadsd_w3", "hadsa_w3", "hadstot_w3", "age11IQ", "lm1_re_w3", "lm2_re_w3", "lmtotal_w3", "vpatotal_w3", "spantot_w3", "matreas_w3", "digback_w3", "blkdes_w3", "ittotal_w3", "digsym_w3", "srtmean_w3", "griprh_w3", "griplh_w3") #nart_w3 doesn't exist
+
+explanatory_w3_most_relevant = c("ageyears_w3", "Sex.factor", "yrsedu_w1", "Social.factor", "bmi_w3", "Smoking.factor.w3", "alcunitwk_w3", "CVD.factor.w3", "Stroke.factor.w3", "HiBP.factor.w3", "Days_significant_exercise_w3",  "Arthritis.factor.w3", "Legpain.factor.w3",  "Marital.factor.w3", "hadstot_w3", "age11IQ", "trailmakingtime_w3", "vftot_w3", "lmtotal_w3", "vpatotal_w3", "spantot_w3", "matreas_w3", "digback_w3", "blkdes_w3", "ittotal_w3", "digsym_w3", "srtmean_w3", "griprh_w3", "griplh_w3")
+
+explanatory_w3_tidiest = c("ageyears_w3", "Sex.factor", "yrsedu_w1", "Social.factor", "bmi_w3", "Smoking.factor.w3", "alcunitwk_w3", "CVD.factor.w3", "Stroke.factor.w3", "HiBP.factor.w3", "Days_significant_exercise_w3",  "Arthritis.factor.w3", "Legpain.factor.w3",  "Marital.factor.w3", "hadstot_w3", "age11IQ", "trailmakingtime_w3", "vftot_w3", "lmtotal_w3", "vpatotal_w3", "spantot_w3", "matreas_w3", "digback_w3", "blkdes_w3", "ittotal_w3", "digsym_w3", "srtmean_w3")
+
+MCRcombinedRecoded %>% 
+ff_glimpse(explanatory_w3)
 
 
 # Summarising factors with finalfit ----
 # if this is an association study, MCR is my OUTCOME/dependent variable. This is the first step in building a Table1. 
 
-MCRcombinedRecoded %>% 
+
+summary_fl_mcr_3_all_relevant_explans_w1 <- MCRcombinedRecoded %>% 
+  summary_factorlist(dependent_w3, 
+                     explanatory_w1,
+                     p = TRUE)
+
+
+
+summary_fl_mcr_3_all_relevant_explans_w3 <- MCRcombinedRecoded %>% 
   summary_factorlist(dependent = "MCR.factor.w3",
-                     explanatory = c("ageyears_w3", "Sex.factor", "yrsedu_w1", "Social.factor", "bmi_w3", "Smoking.factor.w3", "ApoE.factor", "Alcohol.factor.w3", "CVD.factor.w3", "Stroke.factor.w3", "PD.factor.w3", "Diabetes.factor.w3", "trailmakingtime_w3", "bld_crprot_w3", "Days_significant_exercise_w3", "vftot_w3", "age70IQ_w1", "hadsd_w3", "hadsa_w3"),                   p = TRUE)
+                     explanatory = c("ageyears_w3", "Sex.factor", "yrsedu_w1", "Social.factor", "bmi_w3", "Smoking.factor.w3", "ApoE.factor", "Alcohol.factor.w3", "CVD.factor.w3", "Stroke.factor.w3", "PD.factor.w3", "Diabetes.factor.w3", "trailmakingtime_w3", "bld_crprot_w3", "Days_significant_exercise_w3", "vftot_w3", "age11IQ", "hadsd_w3", "hadsa_w3", "Arthritis.factor.w3", "On.meds.factor.w3", "Legpain.factor.w3", "HiBP.factor.w3", "Marital.factor.w3", "alcunitwk_w3", "hadsd_w3", "hadsa_w3", "hadstot_w3", "age11IQ", "lm1_re_w3", "lm2_re_w3", "lmtotal_w3", "vpatotal_w3", "spantot_w3", "matreas_w3", "digback_w3", "blkdes_w3", "ittotal_w3", "digsym_w3", "srtmean_w3", "griprh_w3", "griplh_w3"), p = TRUE)
+summary_fl_mcr_3_all_relevant_explans_w3
+
+summary_fl_mcr_3_most_relevant_explans_w3 <- MCRcombinedRecoded %>% 
+  summary_factorlist(dependent = "MCR.factor.w3",
+                     explanatory = c("ageyears_w3", "Sex.factor", "yrsedu_w1", "Social.factor", "bmi_w3", "Smoking.factor.w3", "alcunitwk_w3", "CVD.factor.w3", "Stroke.factor.w3", "HiBP.factor.w3", "Days_significant_exercise_w3",  "Arthritis.factor.w3", "Legpain.factor.w3",  "Marital.factor.w3",  "hadsd_w3", "hadsa_w3", "hadstot_w3", "age11IQ", "trailmakingtime_w3", "vftot_w3", "lmtotal_w3", "vpatotal_w3", "spantot_w3", "matreas_w3", "digback_w3", "blkdes_w3", "ittotal_w3", "digsym_w3", "srtmean_w3", "griprh_w3", "griplh_w3"), p = TRUE)
+summary_fl_mcr_3_most_relevant_explans_w3
                                   
 
 # MCRw3 assoc w Dementia w5 ----
@@ -2931,10 +2963,8 @@ explanatory_w1reg = c("ageyears_w1", "Sex.factor", "yrsedu_w1", "Social.factor",
 explanatory_w1_cont = c("ageyears_w1", "yrsedu_w1", "Social.factor", "bmi_w1", "bld_choles_w1", "fev_w1", "bld_crprot_w1", "bld_hba1c_w1", "vftot_w1", "hadsd_w1", "hadsa_w1", "hadstot_w1", "age11IQ", "lm1_re_w1", "lm2_re_w1", "lmtotal_w1", "vpatotal_w1", "spantot_w1", "matreas_w1", "digback_w1", "nart_w1", "blkdes_w1", "ittotal_w1", "digsym_w1", "srtmean_w1", "griprh_w1", "griplh_w1")
 
 
-explanatory_w3 = c("ageyears_w3", "Sex.factor", "yrsedu_w1", "Social.factor", "bmi_w3", "Smoking.factor.w3", "ApoE.factor", "Alcohol.factor.w3", "CVD.factor.w3", "Stroke.factor.w3", "PD.factor.w3", "Diabetes.factor.w3", "trailmakingtime_w3", "bld_crprot_w3", "Days_significant_exercise_w3", "vftot_w3", "age11IQ", "hadsd_w3", "hadsa_w3", "Arthritis.factor.w3", "On.meds.factor.w3", "Legpain.factor.w3", "HiBP.factor.w3", "Marital.factor.w3", "alcunitwk_w3", "hadsd_w3", "hadsa_w3", "hadstot_w3", "age11IQ", "lm1_re_w3", "lm2_re_w3", "lmtotal_w3", "vpatotal_w3", "spantot_w3", "matreas_w3", "digback_w3", "nart_w3", "blkdes_w3", "ittotal_w3", "digsym_w3", "srtmean_w3", "griprh_w3", "griplh_w3")
+explanatory_w3 = c("ageyears_w3", "Sex.factor", "yrsedu_w1", "Social.factor", "bmi_w3", "Smoking.factor.w3", "ApoE.factor", "Alcohol.factor.w3", "CVD.factor.w3", "Stroke.factor.w3", "PD.factor.w3", "Diabetes.factor.w3", "trailmakingtime_w3", "bld_crprot_w3", "Days_significant_exercise_w3", "vftot_w3", "age11IQ", "hadsd_w3", "hadsa_w3", "Arthritis.factor.w3", "On.meds.factor.w3", "Legpain.factor.w3", "HiBP.factor.w3", "Marital.factor.w3", "alcunitwk_w3", "hadsd_w3", "hadsa_w3", "hadstot_w3", "age11IQ", "lm1_re_w3", "lm2_re_w3", "lmtotal_w3", "vpatotal_w3", "spantot_w3", "matreas_w3", "digback_w3", "blkdes_w3", "ittotal_w3", "digsym_w3", "srtmean_w3", "griprh_w3", "griplh_w3")
 
-dependent <- "MCR.factor.w5"
-explanatory <- c("ageyears_w1", "yrsedu_w1", "Social.factor", "ittotal_w1", "digsym_w1", "bld_hba1c_w1", "vftot_w1", "hadsd_w1")
 
 
 explanatory_sex <- c("ageyears_w1", "Sex.factor", "yrsedu_w1", "ittotal_w1", "digsym_w1", "bld_hba1c_w1", "vftot_w1")
@@ -2972,16 +3002,16 @@ regtableMCRw5_explanw1 <- MCRcombinedRecoded %>%
   finalfit(dependent, explanatory, metrics = TRUE)
 knitr::kable(regtableMCRw5_explanw1[[1]], row.names = FALSE, align=c("l", "l", "r", "r", "r"))
 knitr::kable(regtableMCRw5_explanw1[[2]], row.names = FALSE, col.names = "")
-
+regtableMCRw5_explanw1
 save(regtableMCRw5_explanw1, dependent, explanatory,
      file = here::here("mcr_project", "regtableMCRw5_explanw1.rda"))
 
 
 # w3 explan variables; MCRw3 - requires editing to change ORs to max of 3 or 4 digits for readability purposes
-regtableMCRw5_explanw3 <- MCRcombinedRecoded %>%
+regtableMCRw3_explanw3 <- MCRcombinedRecoded %>%
   finalfit(dependent_w3, explanatory_w3, metrics = TRUE)
-knitr::kable(regtableMCRw5_explanw3[[1]], row.names = FALSE, align=c("l", "l", "r", "r", "r"))
-knitr::kable(regtableMCRw5_explanw3[[2]], row.names = FALSE, col.names = "")
+knitr::kable(regtableMCRw3_explanw3[[1]], row.names = FALSE, align=c("l", "l", "r", "r", "r"))
+knitr::kable(regtableMCRw3_explanw3[[2]], row.names = FALSE, col.names = "")
 
 regtableMCRw5_explanw3
 
@@ -2991,7 +3021,7 @@ save(regtableMCRw5_explanw3, dependent, explanatory,
 # OR plots ----
 # MCRw3 and explan variables w1
 ORplotMCRw3_explanw1 <- MCRcombinedRecoded %>% 
-  or_plot(dependent, explanatory, 
+  or_plot(dependent_w3, explanatory_w1, 
           breaks = c(0.5, 1, 5, 10, 15))
 save(ORplotMCRw3_explanw1, dependent, explanatory,
      file = here::here("mcr_project", "dependent_w3", "explanatory_w1", "ORplotMCRw3_explanw1.rda"))
@@ -3048,24 +3078,16 @@ MCRcombinedRecoded %>%
   geom_qq_line(colour = "blue") + # add the theoretical line
   facet_grid("MCR.factor.w3")
 
+## Univariable logistic regression mcr_w3 as dependent ----
 
-
-
-
-
-
-
+MCRcombinedRecoded %>% 
+  finalfit(dependent_w3, explanatory = "vftot_w3", metrics = TRUE)
 
 # library(finalfit) # glimpse, missing_glimpse, ff_glimpse
 getOption("max.print") # determines what max print number is (default 1000 rows/observations)
 options(max.print=3000)
 
-glimpse(MCRcombinedRecoded)
-
-missing_glimpse(MCRcombined)
-ff_glimpse(MCRcombined)
-
-logistic <- glm(mcr_mem_w3 ~ mcr_ipip_w1, data = MCRcombined, family = "binomial")
+logistic <- glm(mcr_mem_w3 ~ vftot_w1, data = MCRcombinedRecoded, family = "binomial")
 summary(logistic)
 
 log_all <- glm(dement_w3 ~ ., data = MCRcombined, family = "binomial")
@@ -3123,8 +3145,7 @@ ggplot(lbc_male, aes(x = scc_male_memprob1_w3, y = scc_male_wemwbs7_w3)) +
 
 
 
-# attempt to run linear model of ipip and memprob but they're both binomial so this isn't the right choice
-# ipipmemprob <- lm(lbc_male$scc_male_ipip28_w3 ~ lbc_male$scc_male_memprob1_w3, data = lbc_male)
+
 
 
 # count the number of observations for each combination using geom_count

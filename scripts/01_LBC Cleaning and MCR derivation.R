@@ -114,6 +114,7 @@ summary(MCRdata$sixmwk_w3)
 summary(MCRdata$sixmwk_w4)
 summary(MCRdata$sixmwk_w5)
 
+
 # second, na_values_others conversion check
 summary(MCRdata$ipip28_w3)
 summary(MCRdata$memprob1_w3)
@@ -314,7 +315,7 @@ sd_gait_female_w4 <- lbc_female$gaitspd_w4 %>%
 sd_gait_female_w5 <- lbc_female$gaitspd_w5 %>% 
   sd(na.rm = TRUE)
 
-# 2.2.3 Calculate >=1SD slower than average for gaitspd(m/s) males
+# 2.2.3 Calculate >=1SD slower than average for gaitspd(m/s) females
 slow_gait_cutoff_female_w1 <- lbc_female$gaitspd_w1 %>% 
   mean(na.rm = TRUE) - sd(lbc_female$gaitspd_w1, na.rm = TRUE) # = 1.3564837326 m/s
 slow_gait_cutoff_female_w2 <- lbc_female$gaitspd_w2 %>% 
@@ -342,7 +343,6 @@ table(lbc_female$slow_female_w4) # slow_female_w4 n = 44
 lbc_female <- lbc_female %>% 
   mutate(slow_female_w5 = if_else(gaitspd_w5 <= slow_gait_cutoff_female_w5, 1,0))
 table(lbc_female$slow_female_w5) # slow_female_w5 n = 35 
-
 
 
 
@@ -419,7 +419,8 @@ lbc_male <- lbc_male %>%
   mutate(scc_male_memprob1_w3 = if_else(memprob1_w3 == 1, 1, 0)) %>% 
   mutate(scc_male_memprob1_w4 = if_else(memory1_w4 == 1, 1, 0)) %>%
   mutate(scc_male_memprob1_w5 = if_else(memory1_w5 == 1, 1, 0))
-  
+
+
 # Explore how many males have both slow gait and SCC depending on SCC variable 
 # ipip28_w1/2/3/4/5 variable
 lbc_male %>% 
@@ -1412,8 +1413,23 @@ table(MCRcombined$mcr_mem_w5, data=MCRcombined$attrition)
 
 # RECODE the data - define factors----
 
+
 # save a renamed copy to play about with
 MCRcombinedRecoded <- MCRcombined
+
+
+lbc_male <- lbc_male %>% 
+  mutate(mcr_male_memprob1_w3 = if_else(lbc_male$scc_male_memprob1_w3 == 1 & lbc_male$slow_male_w3 == 1 & lbc_male$no_dementia_w3 == 1 & lbc_male$independ_male_w3 == 1, 1, 0))
+sum(lbc_male$mcr_male_memprob1_w3, na.rm = TRUE)
+(sum(lbc_male$mcr_male_memprob1_w3, na.rm = TRUE)/sum(wave3attenders_male)) * 100
+## first create slow walker either sex variable ----
+names(MCRcombinedRecoded)
+
+# PICK UP HERE!!! ----
+# don't know why, but this only creates a variable with 1 or NA - 0's are lost. Maybe try the same case_if function that worked before.
+MCRcombinedRecoded <- MCRcombinedRecoded %>% 
+  mutate(slow_walker_w3 = if_else(MCRcombinedRecoded$slow_female_w3 ==1 | MCRcombinedRecoded$slow_male_w3 ==1, 1, 0))
+table(MCRcombinedRecoded$slow_walker_w3)
 
 MCRcombinedRecoded <- MCRcombined %>% 
   mutate(Sex.factor = # make new variable
@@ -1478,6 +1494,31 @@ MCRcombinedRecoded <- MCRcombined %>%
                       "Skilled manual" = "3.5",
                       "Semi-skilled" = "4",
                       "Unskilled" = "5"),
+         
+         Slow.factor.w3 = 
+           factor(MCRcombinedRecoded$slow_walker_w3) %>% 
+           fct_recode("Not slow" = "0",
+                      "Slow" = "1") %>% 
+           ff_label("Slow_w3"),
+         # should be no need for these if I can factorise the joint
+         # slow walker variable "
+         # SlowF.factor.w3 = 
+          # factor(slow_female_w3) %>% 
+           #fct_recode("Not slow" = "0",
+          #            "Slow" = "1") %>% 
+          # ff_label("SlowF_w3"),
+      
+          # SlowM.factor.w3 = 
+          #   factor(slow_male_w3) %>% 
+          #   fct_recode("Not slow" = "0",
+            #            "Slow" = "1") %>% 
+          #  ff_label("SlowM_w3"),
+         
+        Memprob.factor.w3 = 
+          factor(memprob1_w3) %>% 
+          fct_recode("No memory prob" = "0",
+                     "Memory prob" = "0") %>% 
+          ff_label("Memory_prob_w3"),
          
          ApoE.factor = 
            factor(APOEe4) %>% 
@@ -1862,7 +1903,9 @@ MCRcombinedRecoded <- MCRcombined %>%
 
 # 
 write_csv(MCRcombinedRecoded, file = "MCRcombinedRecoded.csv")
-                    
+
+MCRcombinedRecoded$Slow.factor.w3
+
 # Correlation Matrix (of continuous variables) ----
 # https://www.displayr.com/how-to-create-a-correlation-matrix-in-r/
 # really should check if the cont vars are para aka normal (Pearson) or nonpara (Spearman) first to decide on which test to run
@@ -2761,7 +2804,7 @@ MCRcombinedRecoded %>%
   kruskal.test(hadsd_w1 ~ MCR.factor.w3, data = .) %>% 
   tidy()
 
-# FINALFIT approach ----
+# FINALFIT for non-parametric tests ----
 # https://argoshare.is.ed.ac.uk/healthyr_book/finalfit-approach.html
 # firstly define dependent and explanatory variables
 # Define dependent and explanatory variables ----
@@ -3019,19 +3062,45 @@ save(regtableMCRw5_explanw3, dependent, explanatory,
      file = here::here("mcr_project", "regtableMCRw5_explanw3.rda"))
 
 # OR plots ----
+# to make it easier to troubleshoot, restate the variables here so I can tinker 
+explanatory_w1_tidiest <- c("ageyears_w1", "Sex.factor", "yrsedu_w1",  "alcunitwk_w1",  "CVD.factor.w1", "HiBP.factor.w1",  "Arthritis.factor.w1", "bmi_w1",  "bld_choles_w1", "fev_w1", "bld_hba1c_w1",   "hadstot_w1", "age11IQ", "vftot_w1",  "lmtotal_w1", "digback_w1", "blkdes_w1", "ittotal_w1", "digsym_w1")
+
+# cut "Social.factor", "Marital.factor.w1"  as the various levels were causing havoc!
+# cut "Marital.factor.w1",  "Smoking.factor.w1", "alcunitwk_w1",  "CVD.factor.w1", "Stroke.factor.w1", "HiBP.factor.w1",  "Arthritis.factor.w1", "bmi_w1",
+
+names(MCRcombinedRecoded)
+
+explanatory_w3_tidiest = c("MCR.factor.w3", "ageyears_w3", "Sex.factor", "yrsedu_w1", "bmi_w3",   "hadstot_w3", "age11IQ", "trailmakingtime_w3", "vftot_w3", "lmtotal_w3","digback_w3", "blkdes_w3", "ittotal_w3", "digsym_w3")
+# to get ORplot working I removed: "Social.factor", "Marital.factor.w3","Smoking.factor.w3", "alcunitwk_w3", "CVD.factor.w3", "HiBP.factor.w3", "Days_significant_exercise_w3",  "Arthritis.factor.w3", "Legpain.factor.w3",   "vpatotal_w3", "spantot_w3", "matreas_w3", "srtmean_w3",     "SlowF.factor.w3", 
+
+
 # MCRw3 and explan variables w1
 ORplotMCRw3_explanw1 <- MCRcombinedRecoded %>% 
-  or_plot(dependent_w3, explanatory_w1, 
-          breaks = c(0.5, 1, 5, 10, 15))
-save(ORplotMCRw3_explanw1, dependent, explanatory,
-     file = here::here("mcr_project", "dependent_w3", "explanatory_w1", "ORplotMCRw3_explanw1.rda"))
+  or_plot(dependent_w3, explanatory_w1_tidiest,
+          breaks = c(0.25, 0.5, 1, 2, 3))
+# save(ORplotMCRw3_explanw1, dependent, explanatory,
+     file = here::here("mcr_project", "dependent_w3", "explanatory_w1", "ORplotMCRw3_explanw1.rda")
 
 # MCRw3 and explan variables w3
 
-# MCRw3 and explan variables w1
+# MCRw5 and explan variables w1
 ORplotMCRw5_explanw3 <- MCRcombinedRecoded %>% 
-  or_plot(dependent, explanatory, 
-          breaks = c(0.5, 1, 5, 10, 15))
+  or_plot(dependent_w5, explanatory_w1_tidiest, 
+          breaks = c(0.25, 0.5, 1, 5))
+
+
+## Demw5 and explan variables w3 ----
+ORplotDem_w5_explanw3 <- MCRcombinedRecoded %>% 
+  or_plot(dependent = "Dementia.factor.w5", explanatory_w3_tidiest, 
+      )
+
+# nobody without a memprobw3 went on to develop demw5 therefore unable to plot this - UCI is NA!
+xtabs(~ Dementia.factor.w5 + Memprob.factor.w3, data = MCRcombinedRecoded)
+
+xtabs(~ Dementia.factor.w5 + SlowF.factor.w3, data = MCRcombinedRecoded)
+
+xtabs(~ Dementia.factor.w5 + SlowM.factor.w3, data = MCRcombinedRecoded)
+
 
 # save all these tables as output for knitting to word in RMarkdown https://finalfit.org/articles/export.html - probably need to do one of these for each combo of dependent and explanatory variables
 save(xtableMCRw5, regtableMCRw5, ORplotMCRw5_explanw3, dependent, explanatory, file = "MCRw5explanw3out.rda")
@@ -3279,6 +3348,50 @@ library(lme4) # good one to use - https://www.r-bloggers.com/2017/04/choosing-r-
 
 
 # ARCHIVE ----
+# Staquest Log Reg Video ----
+#From statquest video https://www.youtube.com/watch?v=C4N3_XJJ-jU
+# once data is loaded and formated (factors defined as factors etc), NAs 
+# coded correctly, and missing data is factored in, he then moves on to 
+# verify that the data is not imbalanced 
+
+xtabs(~ MCR.factor.w3 + Sex.factor, data = MCRcombinedRecoded) # to check that 
+# there is good distribition of data amongst each group MCR_w3 amongst both sexes
+# (does a xtab for each boolean variable 
+  #combo to check that each group is represented by enough people - i think 
+  # summary_fl tables do the same for me in a one-r)
+xtabs(~ MCR.factor.w3 + PD.factor.w3, data = MCRcombinedRecoded) # for eg this 
+# could become a problem as there is only 1 person w PD and MCR which will 
+# cause problems later on. 
+
+## Super simple model ---- 
+# predict MCRw3 using only the sex/digsym/ageyears of each participant
+logistic <- glm(MCR.factor.w3 ~ Sex.factor, data = MCRcombinedRecoded, family = "binomial")
+summary(logistic) # deviance residuals are not centred around zero therefore don't look good!
+logistic <- glm(MCR.factor.w3 ~ digsym_w1, data = MCRcombinedRecoded, family = "binomial")
+summary(logistic)
+logistic <- glm(MCR.factor.w3 ~ ageyears_w1, data = MCRcombinedRecoded, family = "binomial")
+summary(logistic)
+
+
+
+## multivariable logistic regression ----
+logistic <- glm(MCR.factor.w3 ~ explanatory_w3_tidiest, data = MCRcombinedRecoded, family = "binomial") # throws up an error - 
+# "Error in model.frame.default(formula = MCR.factor.w3 ~ explanatory_w3_tidiest,  : 
+# variable lengths differ (found for 'explanatory_w3_tidiest')"
+# answer from stackoverflow https://stackoverflow.com/questions/19771284/error-in-model-frame-default-variable-lengths-differ - 
+# The default (in most cases) is still na.omit. Note that df has 5114 rows and 
+# the length of resid1 is only 4863. NA values are indeed being dropped. Try 
+# dropping the NA values first. Then your residual vector will match your original data frame. 
+# remove NAs from MCRcombinedRecoded first (but rename it just for this trial)
+MCRnoNAs <- MCRcombinedRecoded[complete.cases(MCRcombinedRecoded),]
+# uh oh, this removes all rows as everyone has at least one variable (from 557) missing.
+# re-run the model using this new dataframe
+
+
+## LogReg dem5 as dependent ----
+demlogistic <- glm(Dementia.factor.w5 ~ MCR.factor.w3 + ageyears_w3 + digsym_w3 + vftot_w3, data = MCRcombinedRecoded, family = "binomial")
+summary(demlogistic)
+
 
 # move specific column(s) to the front of the tibble for ease of viewing
 # MCRdata %>% 

@@ -1418,18 +1418,81 @@ table(MCRcombined$mcr_mem_w5, data=MCRcombined$attrition)
 MCRcombinedRecoded <- MCRcombined
 
 
-lbc_male <- lbc_male %>% 
-  mutate(mcr_male_memprob1_w3 = if_else(lbc_male$scc_male_memprob1_w3 == 1 & lbc_male$slow_male_w3 == 1 & lbc_male$no_dementia_w3 == 1 & lbc_male$independ_male_w3 == 1, 1, 0))
-sum(lbc_male$mcr_male_memprob1_w3, na.rm = TRUE)
-(sum(lbc_male$mcr_male_memprob1_w3, na.rm = TRUE)/sum(wave3attenders_male)) * 100
 ## first create slow walker either sex variable ----
 names(MCRcombinedRecoded)
+# Issue with using if_else() is it only keeps the positive cases, recording all else as NA (loses the 0s from each sex). Maybe try the same case_when() function that worked before when creating mcr_mem_prob. case_when() allows you to vectorise multiple if_else statements
+#MCRcombinedRecoded <- MCRcombinedRecoded %>% 
+#  mutate(slow_walker_w3 = if_else(MCRcombinedRecoded$slow_female_w3 #==1 | MCRcombinedRecoded$slow_male_w3 ==1, 1, 0))
+#table(MCRcombinedRecoded$slow_walker_w3)
 
-# PICK UP HERE!!! ----
-# don't know why, but this only creates a variable with 1 or NA - 0's are lost. Maybe try the same case_if function that worked before.
-MCRcombinedRecoded <- MCRcombinedRecoded %>% 
-  mutate(slow_walker_w3 = if_else(MCRcombinedRecoded$slow_female_w3 ==1 | MCRcombinedRecoded$slow_male_w3 ==1, 1, 0))
-table(MCRcombinedRecoded$slow_walker_w3)
+# PICK UP HERE Tue 7/2/22 ----
+# CREATE slow walker, memprob and dementia.both variables for all 5 waves then mutate to factors. 
+
+# Slow_walker variable
+MCRcombined <- 
+  MCRcombined %>% 
+  mutate(slow_walker_w3 = case_when(
+    slow_female_w3 == 1 |
+      slow_male_w3 == 1 ~ 1,
+    slow_male_w3 == 0 |slow_female_w3 == 0 ~ 0,
+    slow_male_w3 == NA | slow_female_w3 == NA ~ NA_real_)) # # All RHS values need to be of the same type. Inconsistent types will throw an error.
+# This applies also to NA values used in RHS: NA is logical (whereas my LHS values are numeric), use
+# typed values like NA_real_, NA_complex, NA_character_, NA_integer_ as appropriate
+
+table(MCRcombined$slow_walker_w3)
+# this worked, 112 slow out of 112+580 total w3 participants (the rest are NA)!
+
+# now do it for the other waves
+MCRcombined <- 
+  MCRcombined %>% 
+  mutate(slow_walker_w4 = case_when(
+    slow_female_w4 == 1 |
+      slow_male_w4 == 1 ~ 1,
+    slow_male_w4 == 0 |slow_female_w4 == 0 ~ 0,
+    slow_male_w4 == NA | slow_female_w4 == NA ~ NA_real_))
+
+MCRcombined <- 
+  MCRcombined %>% 
+  mutate(slow_walker_w5 = case_when(
+    slow_female_w5 == 1 |
+      slow_male_w5 == 1 ~ 1,
+    slow_male_w5 == 0 |slow_female_w5 == 0 ~ 0,
+    slow_male_w5 == NA | slow_female_w5 == NA ~ NA_real_))
+
+## second, create dementia variable ----
+# if yes to self-reported dementia OR <24 in MMSE
+MCRcombined <- 
+  MCRcombined %>% 
+  mutate(dementia_both_w3 = case_when(
+    dement_w3 == 1 |
+      mmse_w3 < 24 ~ 1,
+    dement_w3 == 0 |mmse_w3 > 23 ~ 0,
+    dement_w3 == NA | mmse_w3 == NA ~ NA_real_))
+table(MCRcombined$dement_w3) # n = 9
+table(MCRcombined$dementia_both_w3) # n = 18
+
+# now do it for the other waves
+MCRcombined <- 
+  MCRcombined %>% 
+  mutate(dementia_both_w4 = case_when(
+    dement_w4 == 1 |
+      mmse_w4 < 24 ~ 1,
+    dement_w4 == 0 |mmse_w4 > 23 ~ 0,
+    dement_w4 == NA | mmse_w4 == NA ~ NA_real_))
+table(MCRcombined$dement_w4) # n = 10
+table(MCRcombined$dementia_both_w4) # n = 18
+
+MCRcombined <- 
+  MCRcombined %>% 
+  mutate(dementia_both_w5 = case_when(
+    dementia_w5 == 1 |
+      mmse_w5 < 24 ~ 1,
+    dementia_w5 == 0 |mmse_w5 > 23 ~ 0,
+    dementia_w5 == NA | mmse_w5 == NA ~ NA_real_))
+table(MCRcombined$dementia_w5) # n = 12
+table(MCRcombined$dementia_both_w5) # n = 17
+
+## third, recode factors ----
 
 MCRcombinedRecoded <- MCRcombined %>% 
   mutate(Sex.factor = # make new variable
@@ -1496,7 +1559,7 @@ MCRcombinedRecoded <- MCRcombined %>%
                       "Unskilled" = "5"),
          
          Slow.factor.w3 = 
-           factor(MCRcombinedRecoded$slow_walker_w3) %>% 
+           factor(slow_walker_w3) %>% 
            fct_recode("Not slow" = "0",
                       "Slow" = "1") %>% 
            ff_label("Slow_w3"),
@@ -1514,11 +1577,53 @@ MCRcombinedRecoded <- MCRcombined %>%
             #            "Slow" = "1") %>% 
           #  ff_label("SlowM_w3"),
          
-        Memprob.factor.w3 = 
+         Slow.factor.w4 = 
+           factor(slow_walker_w4) %>% 
+           fct_recode("Not slow" = "0",
+                      "Slow" = "1") %>% 
+           ff_label("Slow_w4"),
+         
+         Slow.factor.w5 = 
+           factor(slow_walker_w5) %>% 
+           fct_recode("Not slow" = "0",
+                      "Slow" = "1") %>% 
+           ff_label("Slow_w5"),
+         
+         Memprob.factor.w3 = 
           factor(memprob1_w3) %>% 
           fct_recode("No memory prob" = "0",
-                     "Memory prob" = "0") %>% 
+                     "Memory prob" = "1") %>% 
           ff_label("Memory_prob_w3"),
+         
+         Memprob.factor.w4 = 
+           factor(memory1_w4) %>% 
+           fct_recode("No memory prob" = "0",
+                      "Memory prob" = "1") %>% 
+           ff_label("Memory_prob_w4"),
+         
+         Memprob.factor.w5 = 
+           factor(memory1_w5) %>% 
+           fct_recode("No memory prob" = "0",
+                      "Memory prob" = "1") %>% 
+           ff_label("Memory_prob_w5"),
+         
+         Dementia.both.factor.w3 = 
+           factor(dementia_both_w3) %>% 
+           fct_recode("No dementia" = "0",
+                      "Dementia" = "1") %>% 
+           ff_label("Dementia_both_w3"),
+         
+         Dementia.both.factor.w4 = 
+           factor(dementia_both_w4) %>% 
+           fct_recode("No dementia" = "0",
+                      "Dementia" = "1") %>% 
+           ff_label("Dementia_both_w4"),
+         
+         Dementia.both.factor.w5 = 
+           factor(dementia_both_w5) %>% 
+           fct_recode("No dementia" = "0",
+                      "Dementia" = "1") %>% 
+           ff_label("Dementia_both_w5"),
          
          ApoE.factor = 
            factor(APOEe4) %>% 
@@ -3070,8 +3175,8 @@ explanatory_w1_tidiest <- c("ageyears_w1", "Sex.factor", "yrsedu_w1",  "alcunitw
 
 names(MCRcombinedRecoded)
 
-explanatory_w3_tidiest = c("MCR.factor.w3", "ageyears_w3", "Sex.factor", "yrsedu_w1", "bmi_w3",   "hadstot_w3", "age11IQ", "trailmakingtime_w3", "vftot_w3", "lmtotal_w3","digback_w3", "blkdes_w3", "ittotal_w3", "digsym_w3")
-# to get ORplot working I removed: "Social.factor", "Marital.factor.w3","Smoking.factor.w3", "alcunitwk_w3", "CVD.factor.w3", "HiBP.factor.w3", "Days_significant_exercise_w3",  "Arthritis.factor.w3", "Legpain.factor.w3",   "vpatotal_w3", "spantot_w3", "matreas_w3", "srtmean_w3",     "SlowF.factor.w3", 
+explanatory_w3_tidiest = c("MCR.factor.w3", "Slow.factor.w3", "Memprob.factor.w3", "ageyears_w3", "Sex.factor", "yrsedu_w1", "bmi_w3",   "hadstot_w3", "age11IQ", "trailmakingtime_w3", "vftot_w3", "lmtotal_w3","digback_w3", "blkdes_w3", "ittotal_w3", "digsym_w3")
+# to get ORplot working I removed: "Social.factor", "Marital.factor.w3","Smoking.factor.w3", "alcunitwk_w3", "CVD.factor.w3", "HiBP.factor.w3", "Days_significant_exercise_w3",  "Arthritis.factor.w3", "Legpain.factor.w3",   "vpatotal_w3", "spantot_w3", "matreas_w3", "srtmean_w3",  
 
 
 # MCRw3 and explan variables w1
@@ -3091,7 +3196,7 @@ ORplotMCRw5_explanw3 <- MCRcombinedRecoded %>%
 
 ## Demw5 and explan variables w3 ----
 ORplotDem_w5_explanw3 <- MCRcombinedRecoded %>% 
-  or_plot(dependent = "Dementia.factor.w5", explanatory_w3_tidiest, 
+  or_plot(dependent = "Dementia.both.factor.w5", explanatory_w3_tidiest, 
       )
 
 # nobody without a memprobw3 went on to develop demw5 therefore unable to plot this - UCI is NA!

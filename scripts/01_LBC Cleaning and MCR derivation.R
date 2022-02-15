@@ -2011,6 +2011,24 @@ write_csv(MCRcombinedRecoded, file = "MCRcombinedRecoded.csv")
 
 MCRcombinedRecoded$Slow.factor.w3
 
+# Subset dataset by including only completers of each wave----
+# these can then be used when running models to reduce the number of missing in each wave
+
+MCRw2to5 <- MCRcombinedRecoded %>% 
+  filter(agedays_w2 != "NA")
+head(MCRw2to5, 3)
+
+MCRw3to5 <- MCRcombinedRecoded %>% 
+  filter(agedays_w3 != "NA")
+head(MCRw3to5, 3)
+
+MCRw4to5 <- MCRcombinedRecoded %>% 
+  filter(agedays_w4 != "NA")
+head(MCRw4to5, 3)
+
+MCRw5to5 <- MCRcombinedRecoded %>% 
+  filter(agedays_w5 != "NA")
+head(MCRw5to5, 3)
 # Correlation Matrix (of continuous variables) ----
 # https://www.displayr.com/how-to-create-a-correlation-matrix-in-r/
 # really should check if the cont vars are para aka normal (Pearson) or nonpara (Spearman) first to decide on which test to run
@@ -3224,15 +3242,16 @@ knitr::kable(t1, align=c("l", "l", "r", "r", "r"))
 
 
 #MODELLING----
-## Continuous outcome variable ----
+##Continuous outcome variable ----
 glimpse(MCRcombinedRecoded)
 missing_glimpse(MCRcombinedRecoded)
 ff_glimpse(MCRcombinedRecoded)
+# Let's choose verbal fluency at w3 (vftot_w3) as the (continuous) outcome/dependent variable
 
-# 1st plot the vftot_w1 variable to check for normality etc
+# 1st plot the vftot_w3 outcome variable to check for normality etc
 
 MCRcombinedRecoded %>% 
-  ggplot(aes(x = vftot_w1)) +
+  ggplot(aes(x = vftot_w3)) +
   geom_histogram() +
   facet_grid("MCR.factor.w3") # looks normal
 
@@ -3247,10 +3266,143 @@ MCRcombinedRecoded %>%
 
 # Quantile-quantile (Q-Q) plot
 MCRcombinedRecoded %>% 
-  ggplot(aes(sample = vftot_w1)) + # Q-Q plot requires 'sample'
+  ggplot(aes(sample = vftot_w3)) + # Q-Q plot requires 'sample'
   geom_qq() + # defaults to normal distribution
   geom_qq_line(colour = "blue") + # add the theoretical line
   facet_grid("MCR.factor.w3")
+
+### Simple linear reg ----
+# first plot the data (doesn't make much sense if it's not cont variables on x AND y axis)
+
+MCRcombinedRecoded %>% 
+  ggplot(aes(x = MCR.factor.w3, y = vftot_w3, colour = MCR.factor.w3)) + 
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) # this last line makes no difference unless x variable is a third different variable - see next plot.
+
+# however, if cont variable on both axes, this makes more sense e.g.: 
+# explore relationship between MCR (explanatory) and Verbal fluency (dependent), accounting for potential confounders such as alcunitwk
+MCRcombinedRecoded %>% 
+  ggplot(aes(x = alcunitwk_w3, y = vftot_w3, colour = MCR.factor.w3)) + 
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE ) # se = TRUE adds in standard error lines
+
+
+#### run simple lin model ----
+
+simp_vftotw3_MCR3 <- MCRcombinedRecoded %>% 
+  lm(vftot_w3 ~ MCR.factor.w3, data = .)
+summary(simp_vftotw3_MCR3)
+# gives a sig p value for MCR as an explan of vftot -4.67 score for positive MCR vs negative MCR, BUT... as it's on all the data from w3, there are 690 degrees of freedom and the R-sq is tiny, almost 0! 
+# I think I first need to reduce the dataset to the variables of interest (as I did in logistic regression).  View it with tidy() and glance() fxs then create a data set with the variables from the logistic reg model. 
+
+# Accessing all model information tidy() and glance()
+# tidy() gets variable(s) and values in a nice tibble()
+
+simp_vftotw3_MCR3 %>% tidy() 
+# In the tidy() output, the column estimate includes both the intercepts and slopes.
+
+simp_vftotw3_MCR3 %>% glance()
+# glance() function to get overall model statistics (mostly the r.squared).
+
+##### subset dataset to same variables as log reg model----
+lin_reg_data <- MCRcombinedRecoded %>% 
+  select("lbc36no", "MCR.factor.w3", "ageyears_w3", "Sex.factor", "yrsedu_w1", "Social.factor", "bmi_w3", "Smoking.factor.w3", "ApoE.factor", "Alcohol.factor.w3", "CVD.factor.w3", "Stroke.factor.w3", "PD.factor.w3", "Diabetes.factor.w3", "trailmakingtime_w3", "bld_crprot_w3", "Days_significant_exercise_w3", "vftot_w3", "age11IQ", "hadsd_w3", "hadsa_w3", "Arthritis.factor.w3", "On.meds.factor.w3", "Legpain.factor.w3", "HiBP.factor.w3", "Marital.factor.w3", "alcunitwk_w3", "hadsd_w3", "hadsa_w3", "hadstot_w3", "age11IQ", "lm1_re_w3", "lm2_re_w3", "lmtotal_w3", "vpatotal_w3", "spantot_w3", "matreas_w3", "digback_w3",  "blkdes_w3", "ittotal_w3", "digsym_w3", "srtmean_w3", "griprh_w3", "griplh_w3")
+head(lin_reg_data, 3)
+
+simp_vftotw3_MCR3 <- lin_reg_data %>% 
+  lm(vftot_w3 ~ MCR.factor.w3, data = .)
+summary(simp_vftotw3_MCR3)
+# makes no difference!
+
+### Model fitting principles ----
+# https://argoshare.is.ed.ac.uk/healthyr_book/fitting-more-complex-models.html
+# 1 As few explanatory variables should be used as possible (parsimony);
+# 2 Explanatory variables associated with the outcome variable in previous studies should be accounted for;
+# 3 Demographic variables should be included in model exploration;
+# 4 Population stratification should be incorporated if available;
+# 5 Interactions should be checked and included if influential;
+# 6 Final model selection should be performed using a “criterion-based approach”
+# - minimise the Akaike information criterion (AIC)
+# - maximise the adjusted R-squared value.
+
+### Multivariable linear reg ----
+# first step as usual plot the relationship
+# explore relationship between MCR (explanatory) and Verbal fluency (dependent), accounting for potential confounders such as alcunitwk, BMI, ageyears, sex (factor), social, age11IQ
+
+MCRcombinedRecoded %>% 
+  ggplot(aes(x = alcunitwk_w3, y = vftot_w3, colour = MCR.factor.w3)) + 
+  geom_point(alpha = 0.2) + # add transparency
+  geom_smooth(method = "lm", se = FALSE ) + # geom_smooth using formulat 'y~x'
+  theme.clean() # my own clean theme that can be applied to all graphs
+
+MCRcombinedRecoded %>% 
+  ggplot(aes(x = bmi_w3, y = vftot_w3, colour = MCR.factor.w3)) + 
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = FALSE )
+
+MCRcombinedRecoded %>% 
+  ggplot(aes(x = ageyears_w3, y = vftot_w3, colour = MCR.factor.w3)) + 
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE )
+
+MCRcombinedRecoded %>% 
+  ggplot(aes(x = Sex.factor, y = vftot_w3, colour = MCR.factor.w3)) + 
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE )
+
+MCRcombinedRecoded %>% 
+  ggplot(aes(x = Social.factor, y = vftot_w3, colour = MCR.factor.w3)) + 
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE )
+
+MCRcombinedRecoded %>% 
+  ggplot(aes(x = age11IQ, y = vftot_w3, colour = MCR.factor.w3)) + 
+  geom_point(alpha = 0.2) + # add transparency
+  geom_smooth(method = "lm", se = FALSE )
+
+# start building the model of vftot_w3
+# use the MCRw3to5 dataset which has removed those missing by start of w3
+
+dependent <- "vftot_w3"
+explanatory <- "MCR.factor.w3"
+fit_vftotw3_1 <- MCRw3to5 %>% 
+  finalfit(dependent, explanatory, metrics = TRUE)
+fit_vftotw3_1 # as there is only one explan variable, the univar and multivar results are the same
+# using MCRw3to5 dataset makes no diff to Rsq or AIC, compared to MCRcombinedRecoded
+# the Rsq is very low (this model only explains 0.007% of the variation in vftot_w3 score!) To be expected given our scatter plot above. 
+
+# Let's now include Age, which we hypothesized would influence vftot
+
+dependent <- "vftot_w3"
+explanatory <- c("ageyears_w3", "MCR.factor.w3")
+fit_vftotw3_2 <- MCRw3to5 %>% 
+  finalfit(dependent, explanatory, metrics = TRUE)
+fit_vftotw3_2 
+# The adjusted R-squared is now slightly higher - the ageyears and MCR together explain 1.8% of the variation in vftot. The AIC is also slightly lower meaning this new model better fits the data. Interpret results as: for every year in age the score in vftot drops by -2.32 (-2.18 multvariable) and for MCR positive there is a drop of -4.68 (-2.18) in vftot
+# UNDERSTANDING INDEPENDENCE/INTERACTION OF VARIABLES
+# There is significant change between the univariable and multivariable coefficients, meaning there is an interaction and they are not independent of each other - this needs to be explored (later)
+# check the distribution of ageyears by MCR status using a boxplot
+MCRw3to5 %>% 
+  ggplot(aes(x = , y = ageyears_w3)) +
+  geom_boxplot(aes())  +     
+  facet_wrap( "MCR.factor.w3") +
+  xlab("No MCR                  MCR               Missing") +
+  ggtitle(
+    "MCR w3 and ageyears w3"
+  )
+
+# Let's now add other variables that may influence vftot
+dependent <- "vftot_w3"
+explanatory <- c("age11IQ", "MCR.factor.w3", "ageyears_w3", "Sex.factor"  )
+fit_vftotw3_3 <- MCRw3to5 %>% 
+  finalfit(dependent, explanatory, metrics = TRUE)
+fit_vftotw3_3 
+
+MCRw2to5$hmsonum_w1
+
+c("ageyears_w1", "Sex.factor", "yrsedu_w1", "Social.factor", "bmi_w1", "bld_choles_w1", "fev_w1", "Smoking.factor.w1", "ApoE.factor", "Alcohol.factor.w1", "CVD.factor.w1", "Stroke.factor.w1", "bld_crprot_w1", "bld_hba1c_w1", "vftot_w1", "age70IQ_w1", "hadsd_w1", "hadsa_w1", "Arthritis.factor.w1", "On.meds.factor.w1", "Legpain.factor.w1", "HiBP.factor.w1", "Marital.factor.w1", "alcunitwk_w1", "hadsd_w1", "hadsa_w1", "hadstot_w1", "age11IQ", "lm1_re_w1", "lm2_re_w1", "lmtotal_w1", "vpatotal_w1", "spantot_w1", "matreas_w1", "digback_w1", "nart_w1", "blkdes_w1", "ittotal_w1", "digsym_w1", "srtmean_w1", "griprh_w1", "griplh_w1")
+
+
 
 ## Univariable logistic regression mcr_w3 as dependent ----
 
@@ -3437,7 +3589,7 @@ theme.mmse <- function(){  # Creating a function
 # Adding an informative legend title
 
 # Fit Linear model to all our data ignoring confounding variables
-basic.anyscc.lm <-lm(mmse_w1 ~ mcr_male_anyscc_w1, data = lbc_male)
+basic.anyscc.lm <-lm(mmse_w5 ~ MCR.factor.w3 + ageyears_w3 + age11IQ, data = MCRcombinedRecoded)
 summary(basic.anyscc.lm)
 
 basic.wemwbs.lm <-lm(mmse_w1 ~ mcr_male_wemwbs7_w2, data = lbc_male)
